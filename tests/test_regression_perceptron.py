@@ -37,32 +37,43 @@ import numba as nb
 
 # Local imports
 from p4.preprocessing import Preprocessor
-from p4.algorithms.regression_perceptron import compute_mse, train_perceptron
+from p4.algorithms.regression_perceptron import compute_mse, predict, train_perceptron
 from p4.preprocessing.split import make_splits
 from p4.preprocessing.standardization import get_standardization_params, standardize, get_standardization_cols
 
+
 warnings.filterwarnings('ignore')
 
-test_dir = Path(".").absolute()
-repo_dir = test_dir.parent
-p4_dir = repo_dir / "p4"
-src_dir = repo_dir / "data"
 
-# Specify k folds
-k_folds = 2
-val_frac = 0.2
+# Define constants
+TEST_DIR = Path(".").absolute()
+REPO_DIR = TEST_DIR.parent
+P4_DIR = REPO_DIR / "p4"
+SRC_DIR = REPO_DIR / "data"
+DST_DIR = REPO_DIR / "data" / "out"
+DST_DIR.mkdir(exist_ok=True, parents=True)
+THRESH = 0.01
+K_FOLDS = 5
+VAL_FRAC = 0.2
 
 
 # Load data catalog and tuning params
-with open(src_dir / "data_catalog.json", "r") as file:
+with open(SRC_DIR / "data_catalog.json", "r") as file:
     data_catalog = json.load(file)
 data_catalog = {k: v for k, v in data_catalog.items() if k in ["forestfires", "machine", "abalone"]}
-data_catalog = {k: v for k, v in data_catalog.items() if k in ["machine"]}
+#data_catalog = {k: v for k, v in data_catalog.items() if k in ["machine"]}
 
 
 def test_regression_perceptron():
+
+    # Iterate over each dataset
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     for dataset_name, dataset_meta in data_catalog.items():
-        preprocessor = Preprocessor(dataset_name, dataset_meta, src_dir)
+        print(dataset_name)
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # Preprocess dataset
+        preprocessor = Preprocessor(dataset_name, dataset_meta, SRC_DIR)
         preprocessor.load()
         preprocessor.drop()
         preprocessor.identify_features_label_id()
@@ -74,56 +85,90 @@ def test_regression_perceptron():
         preprocessor.set_data_classes()
         preprocessor.shuffle()
 
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Extract feature and label columns
-        feature_cols = preprocessor.features
-        label_col = preprocessor.label
+        label = preprocessor.label
+        features = [x for x in preprocessor.features if x != label]
         problem_class = dataset_meta["problem_class"]
-        index = preprocessor.data.index.values
         data = preprocessor.data.copy()
+        data = data[[label] + features]
         if problem_class == "classification":
-            data[label_col] = data[label_col].astype(int)
+            data[label] = data[label].astype(int)
 
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Assign folds
-        data["fold"] = make_splits(data, problem_class, label_col, k_folds=k_folds, val_frac=None)
+        data["fold"] = make_splits(data, problem_class, label, k_folds=K_FOLDS, val_frac=None)
 
-        # Iterate over each fold-run
-        for fold in range(1, k_folds + 1):
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # Validate: Iterate over each fold-run
+        print(f"\tValidate")
+        val_results_li = []
+        test_sets = {}
+        etas = {}
+        te_results_li = []
+        for fold in range(1, K_FOLDS + 1):
+            print(f"\t\t{fold}")
             test_mask = data["fold"] == fold
-            test = data.copy()[test_mask].drop(axis=1, labels="fold")
+            test = data.copy()[test_mask].drop(axis=1, labels="fold")  # We'll save the test for use later
             train_val = data.copy()[~test_mask].drop(axis=1, labels="fold")
-            train_val["train"] = make_splits(train_val, problem_class, label_col, k_folds=None, val_frac=val_frac)
+            train_val["train"] = make_splits(train_val, problem_class, label, k_folds=None, val_frac=VAL_FRAC)
             train_mask = train_val["train"] == 1
             train = train_val.copy()[train_mask].drop(axis=1, labels="train")
             val = train_val.copy()[~train_mask].drop(axis=1, labels="train")
 
             # Get standardization parameters from training-validation set
-            cols = get_standardization_cols(train_val, feature_cols)
-            means, std_devs = get_standardization_params(data.copy()[cols])
+            cols = get_standardization_cols(train, features)
+            means, std_devs = get_standardization_params(train.copy()[cols])
 
             # Standardize data
-            test = test.drop(axis=1, labels=cols).join(standardize(test[cols], means, std_devs))
-            train_val = train_val.drop(axis=1, labels=cols).join(standardize(train_val[cols], means, std_devs))
-            print('yolo')
-            pass
+            train = train.drop(axis=1, labels=cols).join(standardize(train[cols], means, std_devs))
+            val = val.drop(axis=1, labels=cols).join(standardize(val[cols], means, std_devs))
+            test = test.drop(axis=1, labels=cols).join(standardize(test[cols], means, std_devs))  # Save test for later
 
-        splits = make_splits(data, problem_class, label_col, k_folds=None, val_frac=val_frac)
-        testing_data = preprocessor.data.copy().sample(frac=0.2, random_state=777)
-        # preprocessor.discretize()
-        # testing_data = preprocessor.discretize_nontrain(testing_data)
-        data = preprocessor.data.copy().sample(frac=0.8, random_state=777)
+            # Add bias terms
+            train["intercept"] = 1
+            val["intercept"] = 1
+            test["intercept"] = 1  # Save test for later
 
-        # Extract label, features, and data classes
-        label = preprocessor.label
-        features = [x for x in preprocessor.features if x != label]
-        data = data[[label] + features]
-        data["intercept"] = 1
+            YX_tr = train.copy().astype(np.float64).values
+            YX_te = test.copy().astype(np.float64).values  # Save test for later
+            YX_val = val.copy().astype(np.float64).values
+            Y_tr, X_tr = YX_tr[:, 0].reshape(len(YX_tr), 1), YX_tr[:, 1:]
+            test_sets[fold] = dict(Y_te=YX_te[:, 0].reshape(len(YX_te), 1), X_te=YX_te[:, 1:])  # Save test for later
+            Y_val, X_val = YX_val[:, 0].reshape(len(YX_val), 1), YX_val[:, 1:]
+            for eta in [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.2, 0.4, 1]:
+                w_tr = train_perceptron(Y_tr, X_tr, eta, thresh=THRESH)
+                Yhat_val = predict(X_val, w_tr)
+                mse_val = compute_mse(Y_val, Yhat_val)
+                val_results_li.append(dict(dataset_name=dataset_name, fold=fold, eta=eta, mse_val=mse_val))
+                etas[(fold, eta)] = w_tr  # Save etas for later
+        val_results = pd.DataFrame(val_results_li)
+        val_summary = val_results.groupby("eta")["mse_val"].mean().sort_values().to_frame()
+        best_eta = val_summary.index.values[0]
 
-        eta = 0.1
-        YX = data.copy().astype(np.float64).values
-        Y, X = YX[:, 0].reshape(len(YX), 1), YX[:, 1:]
-        weights = train_perceptron(Y, X)
-        mse = compute_mse(Y, X, weights)
-        print(f"{dataset_name}: {mse:.2f}")
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # Test
+        print(f"\tTest")
+        for fold in range(1, K_FOLDS + 1):
+            print(f"\t\t{fold}")
+            w_tr = etas[(fold, best_eta)]
+            Y_te, X_te = test_sets[fold]["Y_te"], test_sets[fold]["X_te"]
+            Yhat_te = predict(X_te, w_tr)
+            mse_te = compute_mse(Y_te, Yhat_te)
+            te_results_li.append(dict(dataset_name=dataset_name, fold=fold, mse_te=mse_te, best_eta=best_eta))
+        te_results = pd.DataFrame(te_results_li)
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # Save outputs
+        print("\tSave")
+        te_results_dst = DST_DIR / f"{dataset_name}_te_results.csv"
+        val_results_dst = DST_DIR / f"{dataset_name}_val_results.csv"
+        val_summary_dst = DST_DIR / f"{dataset_name}_val_summary.csv"
+
+        te_results.to_csv(te_results_dst)
+        val_results.to_csv(val_results_dst)
+        val_summary.to_csv(val_summary_dst)
+
 
 if __name__ == "__main__":
     test_regression_perceptron()
