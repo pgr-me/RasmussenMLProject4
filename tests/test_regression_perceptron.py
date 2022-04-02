@@ -165,8 +165,8 @@ def test_regression_perceptron():
         val_results_dst = DST_DIR / f"{dataset_name}_val_results.csv"
         val_summary_dst = DST_DIR / f"{dataset_name}_val_summary.csv"
 
-        te_results.to_csv(te_results_dst)
-        val_results.to_csv(val_results_dst)
+        te_results.to_csv(te_results_dst, index=False)
+        val_results.to_csv(val_results_dst, index=False)
         val_summary.to_csv(val_summary_dst)
 
 
