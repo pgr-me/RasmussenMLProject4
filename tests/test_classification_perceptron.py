@@ -60,10 +60,11 @@ VAL_FRAC = 0.2
 # Load data catalog and tuning params
 with open(SRC_DIR / "data_catalog.json", "r") as file:
     data_catalog = json.load(file)
-data_catalog = {k: v for k, v in data_catalog.items() if k in ["forestfires", "machine", "abalone"]}
+data_catalog = {k: v for k, v in data_catalog.items() if k in ["breast-cancer-wisconsin", "car", "house-votes-84"]}
+data_catalog = {k: v for k, v in data_catalog.items() if k == "car"}
 
 
-def test_regression_perceptron():
+def test_classification_perceptron():
 
     # Iterate over each dataset
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -93,6 +94,10 @@ def test_regression_perceptron():
         data = data[[label] + features]
         if problem_class == "classification":
             data[label] = data[label].astype(int)
+            classes = sorted(data[label].unique())
+            K = len(classes)
+        data["intercept"] = 1
+        d = len(features) + 1
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Assign folds
@@ -124,18 +129,28 @@ def test_regression_perceptron():
             val = val.drop(axis=1, labels=cols).join(standardize(val[cols], means, std_devs))
             test = test.drop(axis=1, labels=cols).join(standardize(test[cols], means, std_devs))  # Save test for later
 
-            # Add bias terms
-            train["intercept"] = 1
-            val["intercept"] = 1
-            test["intercept"] = 1  # Save test for later
-
             YX_tr = train.copy().astype(np.float64).values
             YX_te = test.copy().astype(np.float64).values  # Save test for later
             YX_val = val.copy().astype(np.float64).values
             Y_tr, X_tr = YX_tr[:, 0].reshape(len(YX_tr), 1), YX_tr[:, 1:]
+            Y_tr_dummies: pd.DataFrame = pd.get_dummies(pd.DataFrame(Y_tr, columns=[label]).astype(int).astype("category"))
+            Y_tr_dummies = Y_tr_dummies[sorted(list(Y_tr_dummies))]
+            Y_tr = Y_tr_dummies.values
             test_sets[fold] = dict(Y_te=YX_te[:, 0].reshape(len(YX_te), 1), X_te=YX_te[:, 1:])  # Save test for later
             Y_val, X_val = YX_val[:, 0].reshape(len(YX_val), 1), YX_val[:, 1:]
+            #def sigmoid()
             for eta in [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.2, 0.4, 1]:
+                w_tr = (np.random.rand(K, d) - 0.5) * 2 / 100
+                o_tr = w_tr.dot(X_tr.T)
+                Yhat_tr = np.divide(np.exp(o_tr), np.exp(o_tr).sum(axis=0)).T
+                w_gr = eta * (Y_tr - Yhat_tr).T.dot(X_tr)
+                w_tr = w_tr + w_gr
+                # Compute cross entropy: pg 263
+                ce_error = -np.sum(Y_tr * np.log(Yhat_tr) + (1-Y_tr) * np.log(Yhat_tr))
+                print("yes")
+
+
+                w_tr = np
                 w_tr = train_perceptron(Y_tr, X_tr, eta, thresh=THRESH)
                 Yhat_val = predict(X_val, w_tr)
                 mse_val = compute_mse(Y_val, Yhat_val)
@@ -170,4 +185,4 @@ def test_regression_perceptron():
 
 
 if __name__ == "__main__":
-    test_regression_perceptron()
+    test_classification_perceptron()
