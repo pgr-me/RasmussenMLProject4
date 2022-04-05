@@ -6,19 +6,19 @@ This module provides the KNN class, the base class of KNNClassifier and KNNRegre
 """
 # Third party libraries
 import numpy as np
-import pandas as pd
-from numba import jit, njit
+from numba import njit
 import numba as nb
 
-# Local imports
 
 @njit
 def predict(X, w):
     return w.dot(X.T).T
 
+
 @njit
 def compute_mse(Y, Yhat):
     return np.sum(np.square(np.subtract(Y, Yhat))) / len(Y)
+
 
 @njit
 def gradient(Y: nb.float64[:], X: nb.float64[:], w: nb.float64[:], index: int, eta: float):
@@ -26,6 +26,7 @@ def gradient(Y: nb.float64[:], X: nb.float64[:], w: nb.float64[:], index: int, e
     r = Y[index]
     y = w.dot(x)
     return eta * (r - y) * x
+
 
 @njit
 def shuffle_indices(n: int) -> nb.int64[:]:
@@ -38,6 +39,7 @@ def shuffle_indices(n: int) -> nb.int64[:]:
     np.random.shuffle(indices)
     return indices
 
+
 @njit
 def train_perceptron(Y: nb.float64[:], X: nb.float64[:], eta: float = 0.1, thresh: float = 0.01, max_iter: int = 500):
     """
@@ -49,7 +51,7 @@ def train_perceptron(Y: nb.float64[:], X: nb.float64[:], eta: float = 0.1, thres
     :param max_iter: Number of iterations
     :return: Trained weights
     """
-    w = (np.random.rand(1, X.shape[1])-0.5) * 2 / 100
+    w = (np.random.rand(1, X.shape[1]) - 0.5) * 2 / 100
     mse = np.abs(0.00001)
     iteration = 0
     while True:
@@ -63,7 +65,7 @@ def train_perceptron(Y: nb.float64[:], X: nb.float64[:], eta: float = 0.1, thres
         # Compute MSE and improvement from the latest iteration
         Yhat = predict(X, w)
         new_mse = compute_mse(Y, Yhat)
-        delta = 1-(mse - new_mse) / mse
+        delta = 1 - (mse - new_mse) / mse
         mse = new_mse
         iteration = iteration + 1
 
