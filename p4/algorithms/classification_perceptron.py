@@ -67,7 +67,7 @@ def shuffle_indices(n: int) -> nb.int64[:]:
 
 
 @njit
-def train_perceptron(Y: nb.float64[:], X: nb.float64[:], eta: float = 0.1, thresh: float = 0.01, max_iter: int = 500):
+def train_classification_perceptron(Y: nb.float64[:], X: nb.float64[:], eta: float = 0.1, thresh: float = 0.01, max_iter: int = 500):
     """
     Train online perceptron for regression.
     :param Y: Target

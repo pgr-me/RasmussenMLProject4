@@ -41,9 +41,7 @@ from p4.algorithms.regression_perceptron import compute_mse, predict, train_perc
 from p4.preprocessing.split import make_splits
 from p4.preprocessing.standardization import get_standardization_params, standardize, get_standardization_cols
 
-
 warnings.filterwarnings('ignore')
-
 
 # Define constants
 TEST_DIR = Path(".").absolute()
@@ -56,7 +54,6 @@ THRESH = 0.01
 K_FOLDS = 5
 VAL_FRAC = 0.2
 
-
 # Load data catalog and tuning params
 with open(SRC_DIR / "data_catalog.json", "r") as file:
     data_catalog = json.load(file)
@@ -64,7 +61,6 @@ data_catalog = {k: v for k, v in data_catalog.items() if k in ["forestfires", "m
 
 
 def test_regression_perceptron():
-
     # Iterate over each dataset
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     for dataset_name, dataset_meta in data_catalog.items():
@@ -154,7 +150,8 @@ def test_regression_perceptron():
             Y_te, X_te = test_sets[fold]["Y_te"], test_sets[fold]["X_te"]
             Yhat_te = predict(X_te, w_tr)
             mse_te = compute_mse(Y_te, Yhat_te)
-            te_results_li.append(dict(dataset_name=dataset_name, fold=fold, mse_te=mse_te, best_eta=best_eta))
+            te_results_li.append(dict(problem_class=problem_class, dataset_name=dataset_name, fold=fold, mse_te=mse_te,
+                                      best_eta=best_eta))
         te_results = pd.DataFrame(te_results_li)
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

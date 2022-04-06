@@ -40,7 +40,8 @@ from p4.preprocessing import Preprocessor
 from p4.algorithms.regression_perceptron import compute_mse, predict, train_perceptron
 from p4.preprocessing.split import make_splits
 from p4.preprocessing.standardization import get_standardization_params, standardize, get_standardization_cols
-from p4.algorithms.classification_perceptron import accuracy, cross_entropy, dummy_categorical_label, gradient, normalize_output, predict_output, predict
+from p4.algorithms.classification_perceptron import accuracy, cross_entropy, dummy_categorical_label, gradient, \
+    normalize_output, predict_output, predict
 
 warnings.filterwarnings('ignore')
 
@@ -61,7 +62,7 @@ VAL_FRAC = 0.2
 with open(SRC_DIR / "data_catalog.json", "r") as file:
     data_catalog = json.load(file)
 data_catalog = {k: v for k, v in data_catalog.items() if k in ["breast-cancer-wisconsin", "car", "house-votes-84"]}
-data_catalog = {k: v for k, v in data_catalog.items() if k == "car"}
+#data_catalog = {k: v for k, v in data_catalog.items() if k == "car"}
 
 
 def test_classification_perceptron():
@@ -116,9 +117,9 @@ def test_classification_perceptron():
         # Validate: Iterate over each fold-run
         print(f"\tValidate")
         test_sets = {}
-        etas = {}
         te_results_li = []
         val_results = []
+        w_trs = []
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Validation: Iterate over each fold
@@ -142,9 +143,9 @@ def test_classification_perceptron():
 
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # Standardize data
-            X_tr_df = train.drop(axis=1, labels=[label]+cols).join(standardize(train[cols], means, std_devs))
-            X_val_df = val.drop(axis=1, labels=[label]+cols).join(standardize(val[cols], means, std_devs))
-            X_te_df = test.drop(axis=1, labels=[label]+cols).join(standardize(test[cols], means, std_devs))
+            X_tr_df = train.drop(axis=1, labels=[label] + cols).join(standardize(train[cols], means, std_devs))
+            X_val_df = val.drop(axis=1, labels=[label] + cols).join(standardize(val[cols], means, std_devs))
+            X_te_df = test.drop(axis=1, labels=[label] + cols).join(standardize(test[cols], means, std_devs))
 
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # Convert train, test, and validation dataframes into arrays
@@ -157,7 +158,6 @@ def test_classification_perceptron():
             Y_te = dummied_label_df.loc[test.index].astype(np.float64).values
 
             test_sets[fold] = dict(X_te=X_te, Y_te=Y_te)  # Save test for later
-            w_tr_vals = {}
             for eta in [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.2, 0.4, 1]:
                 w_tr = (np.random.rand(K, d) - 0.5) * 2 / 100
                 for i in range(500):
@@ -169,13 +169,13 @@ def test_classification_perceptron():
 
                     ce_tr = cross_entropy(Y_tr[rnd_ix, :], Yhat_tr)
                     # Compute cross entropy: pg 263
-                    # Compute accuracy: oh shit need to actually predict with this shit
                     Yhat_val = predict(w_tr, X_val)
                     ce_val = cross_entropy(Y_val, Yhat_val)
                     acc_val = accuracy(Y_val, Yhat_val)
-                    w_tr_vals[(dataset, fold, eta, i)] = w_tr
+                    w_trs.append(dict(dataset=dataset, fold=fold, eta=eta, iteration=i, w_tr=w_tr))
                     val_results.append(
-                        dict(dataset_name=dataset, fold=fold, iteration=i, eta=eta, ce_tr=ce_tr, ce_val=ce_val, acc_val=acc_val))
+                        dict(dataset_name=dataset, fold=fold, iteration=i, eta=eta, ce_tr=ce_tr, ce_val=ce_val,
+                             acc_val=acc_val))
 
         val_results = pd.DataFrame(val_results)
         subset = ["dataset_name", "fold", "eta"]
@@ -184,17 +184,21 @@ def test_classification_perceptron():
         median_iter = val_summary.groupby("eta")["iteration"].median().round().astype(int)
         best_eta = mean_ce_vals.index.values[0]
         best_eta_iter = median_iter.loc[best_eta]
+        w_trs = pd.DataFrame(w_trs).set_index(["dataset", "fold", "eta", "iteration"])
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Test
         print(f"\tTest")
         for fold in range(1, K_FOLDS + 1):
             print(f"\t\t{fold}")
-            w_tr = etas[(fold, best_eta)]
+            w_tr = w_trs.loc[dataset, fold, best_eta, best_eta_iter].loc["w_tr"]
             Y_te, X_te = test_sets[fold]["Y_te"], test_sets[fold]["X_te"]
-            Yhat_te = predict(X_te, w_tr)
-            mse_te = compute_mse(Y_te, Yhat_te)
-            te_results_li.append(dict(dataset_name=dataset, fold=fold, mse_te=mse_te, best_eta=best_eta))
+            Yhat_te = predict(w_tr, X_te)
+            ce_te = cross_entropy(Y_te, Yhat_te)
+            acc_te = accuracy(Y_te, Yhat_te)
+            di = dict(problem_class=problem_class, dataset_name=dataset, fold=fold, best_eta=best_eta,
+                      best_eta_iter=best_eta_iter, ce_te=ce_te, acc_te=acc_te)
+            te_results_li.append(di)
         te_results = pd.DataFrame(te_results_li)
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -206,7 +210,7 @@ def test_classification_perceptron():
 
         te_results.to_csv(te_results_dst, index=False)
         val_results.to_csv(val_results_dst, index=False)
-        val_summary.to_csv(val_summary_dst)
+        val_summary.to_csv(val_summary_dst, index=False)
 
 
 if __name__ == "__main__":
