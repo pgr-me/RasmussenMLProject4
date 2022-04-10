@@ -9,15 +9,12 @@ import numpy as np
 from numba import njit
 import numba as nb
 
+from p4.utils import mse
+
 
 @njit
 def predict(X, w):
     return w.dot(X.T).T
-
-
-@njit
-def compute_mse(Y, Yhat):
-    return np.sum(np.square(np.subtract(Y, Yhat))) / len(Y)
 
 
 @njit
@@ -64,7 +61,7 @@ def train_perceptron(Y: nb.float64[:], X: nb.float64[:], eta: float = 0.1, thres
 
         # Compute MSE and improvement from the latest iteration
         Yhat = predict(X, w)
-        new_mse = compute_mse(Y, Yhat)
+        new_mse = mse(Y, Yhat)
         delta = 1 - (mse - new_mse) / mse
         mse = new_mse
         iteration = iteration + 1

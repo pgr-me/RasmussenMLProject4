@@ -50,10 +50,6 @@ def predict(w, X):
     return normed_output
 
 
-def cross_entropy(Y: np.array, Yhat: np.array) -> float:
-    return -np.sum(Y * np.log(Yhat) + (1 - Y) * np.log(1 - Yhat))
-
-
 @njit
 def shuffle_indices(n: int) -> nb.int64[:]:
     """
@@ -66,35 +62,3 @@ def shuffle_indices(n: int) -> nb.int64[:]:
     return indices
 
 
-@njit
-def train_classification_perceptron(Y: nb.float64[:], X: nb.float64[:], eta: float = 0.1, thresh: float = 0.01, max_iter: int = 500):
-    """
-    Train online perceptron for regression.
-    :param Y: Target
-    :param X: Features
-    :param eta: Learning rate
-    :param thresh: MSE fractional improvement threshold
-    :param max_iter: Number of iterations
-    :return: Trained weights
-    """
-    w = (np.random.rand(1, X.shape[1]) - 0.5) * 2 / 100
-    mse = np.abs(0.00001)
-    iteration = 0
-    while True:
-        # Randomly shuffle indices
-        indices = shuffle_indices(Y.shape[0])
-
-        # Update weights
-        for index in indices:
-            w = w + gradient(Y, X, w, index, eta)
-
-        # Compute MSE and improvement from the latest iteration
-        Yhat = predict(X, w)
-        new_mse = compute_mse(Y, Yhat)
-        delta = 1 - (mse - new_mse) / mse
-        mse = new_mse
-        iteration = iteration + 1
-
-        # Return if delta improvement attained or max iterations reached
-        if (delta <= thresh) or (iteration >= max_iter):
-            return w

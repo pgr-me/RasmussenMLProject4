@@ -37,10 +37,11 @@ import numba as nb
 
 # Local imports
 from p4.preprocessing import Preprocessor
-from p4.algorithms.regression_perceptron import compute_mse, predict, train_perceptron
+from p4.perceptrons.regression_perceptron import predict, train_perceptron
+from p4.utils import mse, cross_entropy
 from p4.preprocessing.split import make_splits
 from p4.preprocessing.standardization import get_standardization_params, standardize, get_standardization_cols
-from p4.algorithms.classification_perceptron import accuracy, cross_entropy, dummy_categorical_label, gradient, \
+from p4.perceptrons.classification_perceptron import accuracy, dummy_categorical_label, gradient, \
     normalize_output, predict_output, predict
 
 warnings.filterwarnings('ignore')
