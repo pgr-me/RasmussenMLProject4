@@ -6,8 +6,6 @@ This module provides the KNN class, the base class of KNNClassifier and KNNRegre
 """
 # Third party libraries
 import numpy as np
-from numba import njit
-import numba as nb
 import pandas as pd
 
 
@@ -48,17 +46,5 @@ def predict(w, X):
     output = predict_output(w, X)
     normed_output = normalize_output(output)
     return normed_output
-
-
-@njit
-def shuffle_indices(n: int) -> nb.int64[:]:
-    """
-    Shuffle a zero-indexed index.
-    :param n: Number of elements in array
-    :return: Array of randomly ordered indices
-    """
-    indices = np.arange(n)
-    np.random.shuffle(indices)
-    return indices
 
 

@@ -8,7 +8,7 @@ import typing as t
 # Third party libraries
 import numpy as np
 
-from p4.utils import sigmoid
+from p4.utils import bias, sigmoid
 
 
 class Layer:
@@ -24,12 +24,23 @@ class Layer:
     def __repr__(self):
         return f"Layer {self.name}"
 
+    def activation(self, Z):
+        return sigmoid(Z) if self.apply_sigmoid else Z
+
+    def activation_derivative(self, Z):
+        return Z * (1 - Z) if self.apply_sigmoid else Z
+
+    def backprop_error(self, error, Z):
+        activation_derivative = self.activation_derivative(Z)
+        delta_W = self.W.T.dot(error.T).T[:, 1:] * activation_derivative
+        return delta_W
+
     def initialize_weights(self):
         n_input_units_bias = self.n_input_units + 1
         self.W = (np.random.rand(self.n_units, n_input_units_bias) - 0.5) * 2 / 100
 
     def predict(self, X):
-        X = np.hstack([np.ones((len(X), 1)), X])
-        o = self.W.dot(X.T).T
+        o = self.W.dot(bias(X).T).T
         self.Z = sigmoid(o) if self.apply_sigmoid else o
         return self.Z
+
