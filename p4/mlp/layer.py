@@ -3,11 +3,14 @@
 
 This module provides the Layer class for multi-layer perceptron training, validation, and prediction routines.
 
+Sources: Lecture notes, Alpaydin, https://zerowithdot.com/mlp-backpropagation/, and
+https://brilliant.org/wiki/backpropagation/
 """
+# Standard library imports
 import typing as t
 # Third party libraries
 import numpy as np
-
+# Local imports
 from p4.utils import bias, sigmoid
 
 
@@ -43,4 +46,3 @@ class Layer:
         o = self.W.dot(bias(X).T).T
         self.Z = sigmoid(o) if self.apply_sigmoid else o
         return self.Z
-
