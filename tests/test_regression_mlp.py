@@ -1,26 +1,6 @@
 #!/usr/bin/env python3
 """Peter Rasmussen, Programming Assignment 3, test_nodes.py
 
-This module tests the nodes module.
-
-K-Folds cross validation strategy:
-    Each fold-run is its own experiment
-    Assign each observation to one of five folds
-
-    # Do validation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    For fold i:
-        fold i is test
-        fold ~i is train-val
-        Split train-val into train and val (80 / 20)
-        Train on train
-        Predict trained model using different param sets on val
-    Take best params over all fold i's: Take a mean to determine best params
-
-    # Do testing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    For fold i:
-         ...
-        Test on best params
-
 """
 # Standard library imports
 import collections as c
@@ -38,7 +18,7 @@ import numba as nb
 # Local imports
 from p4.preprocessing import Preprocessor
 from p4.perceptrons.regression_perceptron import predict, train_perceptron
-from p4.utils import mse
+from p4.utils import mse, sigmoid, shuffle_indices
 from p4.preprocessing.split import make_splits
 from p4.preprocessing.standardization import get_standardization_params, standardize, get_standardization_cols
 
@@ -64,12 +44,12 @@ data_catalog = {k: v for k, v in data_catalog.items() if k in ["forestfires", "m
 def test_regression_perceptron():
     # Iterate over each dataset
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    for dataset_name, dataset_meta in data_catalog.items():
-        print(dataset_name)
+    for dataset, dataset_meta in data_catalog.items():
+        print(dataset)
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Preprocess dataset
-        preprocessor = Preprocessor(dataset_name, dataset_meta, SRC_DIR)
+        preprocessor = Preprocessor(dataset, dataset_meta, SRC_DIR)
         preprocessor.load()
         preprocessor.drop()
         preprocessor.identify_features_label_id()
@@ -102,6 +82,7 @@ def test_regression_perceptron():
         test_sets = {}
         etas = {}
         te_results_li = []
+        from p4.mlp.layer import Layer
         for fold in range(1, K_FOLDS + 1):
             print(f"\t\t{fold}")
             test_mask = data["fold"] == fold
@@ -121,22 +102,48 @@ def test_regression_perceptron():
             val = val.drop(axis=1, labels=cols).join(standardize(val[cols], means, std_devs))
             test = test.drop(axis=1, labels=cols).join(standardize(test[cols], means, std_devs))  # Save test for later
 
-            # Add bias terms
-            train["intercept"] = 1
-            val["intercept"] = 1
-            test["intercept"] = 1  # Save test for later
-
             YX_tr = train.copy().astype(np.float64).values
             YX_te = test.copy().astype(np.float64).values  # Save test for later
             YX_val = val.copy().astype(np.float64).values
             Y_tr, X_tr = YX_tr[:, 0].reshape(len(YX_tr), 1), YX_tr[:, 1:]
             test_sets[fold] = dict(Y_te=YX_te[:, 0].reshape(len(YX_te), 1), X_te=YX_te[:, 1:])  # Save test for later
             Y_val, X_val = YX_val[:, 0].reshape(len(YX_val), 1), YX_val[:, 1:]
+
+            D = X_val.shape[1]
+            H = 4
+            K = 4
+            name = "yolo"
+            #layer1 = Layer(D, H, K, name)
+            #layer1.predict(X_val)
+            from p4.mlp.mlp import MLP
+            from p4.mlp.layer import Layer
+            eta = 0.00001
+            layers = [Layer("input", D, n_input_units=D, apply_sigmoid=True),
+                      Layer("hidden_1", 6, n_input_units=None, apply_sigmoid=True),
+                      Layer("hidden_2", 4, n_input_units=None, apply_sigmoid=True),
+                      Layer("output", 1, n_input_units=None, apply_sigmoid=False)
+                      ]
+            mlp = MLP(layers, D, eta, problem_class)
+            mlp.initialize_weights()
+            runs = range(500)
+            for run in runs:
+                indices = shuffle_indices(len(X_tr))
+                Yhat_tr = mlp.predict(X_tr[indices, :])
+                mlp.backpropagate(X_tr[indices, :], Yhat_tr, Y_tr[indices, :])
+                Yhat_val = mlp.predict(X_val)
+                print(run, mlp.score(Y_val, Yhat_val))
+                #print(mlp.predict(X_tr))
+                #print('y')
+
+            Yhat_tr = mlp.predict(X_tr)
+            score = mlp.score(Y_tr, Yhat_tr)
+            print(score)
+            print('stop')
             for eta in [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.2, 0.4, 1]:
                 w_tr = train_perceptron(Y_tr, X_tr, eta, thresh=THRESH)
                 Yhat_val = predict(X_val, w_tr)
                 mse_val = mse(Y_val, Yhat_val)
-                val_results_li.append(dict(dataset_name=dataset_name, fold=fold, eta=eta, mse_val=mse_val))
+                val_results_li.append(dict(dataset_name=dataset, fold=fold, eta=eta, mse_val=mse_val))
                 etas[(fold, eta)] = w_tr  # Save etas for later
         val_results = pd.DataFrame(val_results_li)
         val_summary = val_results.groupby("eta")["mse_val"].mean().sort_values().to_frame()
@@ -151,16 +158,16 @@ def test_regression_perceptron():
             Y_te, X_te = test_sets[fold]["Y_te"], test_sets[fold]["X_te"]
             Yhat_te = predict(X_te, w_tr)
             mse_te = mse(Y_te, Yhat_te)
-            te_results_li.append(dict(problem_class=problem_class, dataset_name=dataset_name, fold=fold, mse_te=mse_te,
+            te_results_li.append(dict(problem_class=problem_class, dataset_name=dataset, fold=fold, mse_te=mse_te,
                                       best_eta=best_eta))
         te_results = pd.DataFrame(te_results_li)
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Save outputs
         print("\tSave")
-        te_results_dst = DST_DIR / f"perceptron_{dataset_name}_te_results.csv"
-        val_results_dst = DST_DIR / f"perceptron_{dataset_name}_val_results.csv"
-        val_summary_dst = DST_DIR / f"perceptron_{dataset_name}_val_summary.csv"
+        te_results_dst = DST_DIR / f"perceptron_{dataset}_te_results.csv"
+        val_results_dst = DST_DIR / f"perceptron_{dataset}_val_results.csv"
+        val_summary_dst = DST_DIR / f"perceptron_{dataset}_val_summary.csv"
 
         te_results.to_csv(te_results_dst, index=False)
         val_results.to_csv(val_results_dst, index=False)

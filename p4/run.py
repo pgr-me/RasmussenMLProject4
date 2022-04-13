@@ -158,7 +158,7 @@ def run(
                         params = ["method", "k", "sigma", "epsilon"]
                         knn = KNNRegressor(val_train, k, label_col, index, method=method)
                         knn.make_lookup_table()
-                        knn.train_perceptron(sigma, eps)
+                        knn.train_classification_perceptron(sigma, eps)
                         pred = knn.predict(val_test, sigma)
                         results = knn.make_results(val_test, pred)
                         scores = knn.score(results)
@@ -171,7 +171,7 @@ def run(
                         params = ["method", "k"]
                         knn = KNNClassifier(val_train, k, label_col, index, method=method)
                         knn.make_lookup_table()
-                        knn.train_perceptron()
+                        knn.train_classification_perceptron()
 
                         pred = knn.predict(val_test)
 
@@ -232,7 +232,7 @@ def run(
                 knn = KNNRegressor(train, k, label_col, index, method=method)
                 knn.make_lookup_table()
                 if len(knn.all_lookups) > 0:
-                    knn.train_perceptron(sigma, eps)
+                    knn.train_classification_perceptron(sigma, eps)
                     pred = knn.predict(test, sigma)
                     results = knn.make_results(test, pred)
                     scores = knn.score(results)
@@ -247,7 +247,7 @@ def run(
                 params = ["method", "k"]
                 knn = KNNClassifier(val_train, k, label_col, index, method=method)
                 knn.make_lookup_table()
-                knn.train_perceptron()
+                knn.train_classification_perceptron()
 
                 pred = knn.predict(val_test)
                 results = knn.make_results(val_test, pred)
