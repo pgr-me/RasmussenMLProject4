@@ -1,6 +1,0 @@
-,dataset_name,fold,mse_te,best_eta
-0,forestfires,1,1.8802714722102924,1e-05
-1,forestfires,2,3.2485093101053755,1e-05
-2,forestfires,3,2.163397125571535,1e-05
-3,forestfires,4,2.0160839871016125,1e-05
-4,forestfires,5,,1e-05
