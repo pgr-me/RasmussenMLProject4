@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Peter Rasmussen, Programming Assignment 3, test_nodes.py
+"""Peter Rasmussen, Programming Assignment 3, test_classification_mlp.py
 
 """
 # Standard library imports
@@ -127,22 +127,28 @@ def test_regression_mlp():
             D = X_val.shape[1]
 
             n_runs = 150
-            hidden_units_li = [[10, 10], [10, 8], [8, 6], [10, 6], [6, 4], [4, 2], [3, 2]]
+            hidden_units_li = [[10, 10], [10, 8], [8, 6], [10, 6], [6, 6], [6, 4], [4, 2], [3, 2]]
             val_results = []
-            for eta in [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.2, 0.4, 1]:
+            for eta in [0.1, 0.2, 0.4, 1]:
+            #for eta in [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.2, 0.4, 1]:
                 for hidden_units in hidden_units_li:
                     h1, h2 = hidden_units
+
+                    # Define layers
                     layers = [Layer("input", D, n_input_units=D, apply_sigmoid=True),
                               Layer("hidden_1", h1, n_input_units=None, apply_sigmoid=True),
                               Layer("hidden_2", h2, n_input_units=None, apply_sigmoid=True),
                               Layer("output", K, n_input_units=None, apply_sigmoid=True)
                               ]
                     mlp = MLP(layers, D, eta, problem_class, n_runs=n_runs)
+                    mlp.initialize_weights()
+
+                    # Train MLP
                     mlp.train(Y_tr, X_tr, Y_val, X_val)
                     index = ["eta", "h1", "h2"]
                     outputs = pd.DataFrame([[x] * n_runs for x in [eta, h1, h2]], index=index).transpose()
-                    outputs["ce_val"] = mlp.scores
-                    outputs["acc_val"] = accuracy(Y_val, mlp.predict(X_val))
+                    outputs["ce_val"] = mlp.val_scores
+                    outputs["acc_val"] = mlp.val_acc
                     outputs["run"] = range(n_runs)
                     val_results.append(outputs)
             val_results = pd.concat(val_results)
@@ -176,11 +182,12 @@ def test_regression_mlp():
                       ]
 
             mlp = MLP(layers, D, eta, problem_class, n_runs=n_runs)
+            mlp.initialize_weights()
             mlp.train(Y_tr, X_tr, Y_te, X_te)
 
             index = ["eta", "h1", "h2"]
             outputs = pd.DataFrame([[x] * n_runs for x in [eta, h1, h2]], index=index).transpose()
-            outputs["ce_te"] = mlp.scores
+            outputs["ce_te"] = mlp.val_scores
             outputs["acc_te"] = accuracy(Y_te, mlp.predict(X_te))
             outputs["run"] = range(n_runs)
             outputs["fold"] = fold

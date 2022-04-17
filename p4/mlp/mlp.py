@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Peter Rasmussen, Programming Assignment 4, self.py
+"""Peter Rasmussen, Programming Assignment 4, mlp.py
 
 This module provides the MLP class for multi-layer perceptron training, validation, and prediction routines.
 
@@ -7,19 +7,23 @@ Sources: Lecture notes, Alpaydin, https://zerowithdot.com/mlp-backpropagation/, 
 https://brilliant.org/wiki/backpropagation/
 """
 # Local imports
-from p4.utils import bias, cross_entropy, mse, shuffle_indices
+from p4.utils import accuracy, bias, cross_entropy, mse, shuffle_indices
 
 
 class MLP:
-    def __init__(self, layers: list, D: int, eta: float, problem_class: str, n_runs: int = 200):
+    def __init__(self, layers: list, D: int, eta: float, problem_class: str, n_runs: int = 200, name: str=None):
         self.layers = layers
         self.D = D  # Number of input dimensions
         self.eta = eta  # Learning rate
         self.problem_class = problem_class
         self.n_runs = n_runs
+        self.name = name
         self.Yhat = None
         self.n_layers = len(self.layers)
-        self.scores = []
+        self.val_scores = []
+        self.tr_scores = []
+        self.val_acc = []
+        self.tr_acc = []
 
         for layer in self.layers:
             setattr(self, layer.name, layer)
@@ -37,6 +41,7 @@ class MLP:
             weight_change = backprop_error.T.dot(bias(preceding_Z))
             weight_changes[index] = weight_change
             backprop_error = layer.backprop_error(backprop_error, preceding_Z)
+            #print('y')
         weight_changes[0] = backprop_error.T.dot(bias(X))
 
         for index, weight_change in weight_changes.items():
@@ -53,8 +58,13 @@ class MLP:
 
     def predict(self, X):
         Z = self.layers[0].predict(X)
+        #print(self.layers[0], Z.shape)
         for layer in self.layers[1:]:
+            #if self.name == "mlp":
+            #    import ipdb; ipdb.set_trace()
             Z = layer.predict(Z)
+            #print(layer, Z.shape)
+            #print('')
         self.Yhat = Z
         return self.Yhat
 
@@ -63,14 +73,22 @@ class MLP:
             return cross_entropy(Y, Yhat)
         return mse(Y, Yhat)
 
-    def train(self, Y, X, Y_val=None, X_val=None):
-        self.initialize_weights()
+    def train(self, Y_tr, X_tr, Y_val=None, X_val=None):
         run_validation = (Y_val is not None) and (X_val is not None)
         for run in range(self.n_runs):
-            indices = shuffle_indices(len(X))
-            Yhat = self.predict(X[indices, :])
-            self.backpropagate(X[indices, :], Yhat, Y[indices, :])
+            #print(run)
+            indices = shuffle_indices(len(X_tr))
+            Yhat_tr = self.predict(X_tr[indices, :])
+            #try:
+            #    Yhat_tr = self.predict(X_tr[indices, :])
+            #except:
+            #    import ipdb; ipdb.set_trace()
+            self.tr_scores.append(self.score(Y_tr[indices, :], Yhat_tr))
+            if self.problem_class == "classification":
+                self.tr_acc.append(accuracy(Y_tr, Yhat_tr))
+            self.backpropagate(X_tr[indices, :], Yhat_tr, Y_tr[indices, :])
             if run_validation:
                 Yhat_val = self.predict(X_val)
-                score = self.score(Y_val, Yhat_val)
-                self.scores.append(score)
+                self.val_scores.append(self.score(Y_val, Yhat_val))
+                if self.problem_class == "classification":
+                    self.val_acc.append(accuracy(Y_val, Yhat_val))
