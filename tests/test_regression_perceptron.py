@@ -1,25 +1,5 @@
 #!/usr/bin/env python3
-"""Peter Rasmussen, Programming Assignment 3, test_nodes.py
-
-This module tests the nodes module.
-
-K-Folds cross validation strategy:
-    Each fold-run is its own experiment
-    Assign each observation to one of five folds
-
-    # Do validation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    For fold i:
-        fold i is test
-        fold ~i is train-val
-        Split train-val into train and val (80 / 20)
-        Train on train
-        Predict trained model using different param sets on val
-    Take best params over all fold i's: Take a mean to determine best params
-
-    # Do testing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    For fold i:
-         ...
-        Test on best params
+"""Peter Rasmussen, Programming Assignment 4, test_regression_perceptron.py
 
 """
 # Standard library imports

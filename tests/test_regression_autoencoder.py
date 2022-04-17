@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Peter Rasmussen, Programming Assignment 3, test_regression_mlp.py
+"""Peter Rasmussen, Programming Assignment 3, test_regression_autoencoder.py
 
 """
 # Standard library imports
@@ -115,26 +115,48 @@ def test_regression_mlp():
             K = 4
 
             n_runs = 50
-            hidden_units_li = [[10, 10], [10, 8], [8, 6], [6, 6], [10, 6], [6, 4], [4, 2]]
-            #hidden_units_li = [[10, 10], [10, 8]]
+            hidden_units_li = [[8, 6], [8, 4], [6, 6], [6, 4], [4, 4], [4, 2]]
+            # hidden_units_li = [[10, 10], [10, 8]]
             val_results = []
             for eta in [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.2, 0.4, 1]:
-            #for eta in [0.00001, 0.0001]:
+                # for eta in [0.00001, 0.0001]:
                 for hidden_units in hidden_units_li:
+                    print(eta, hidden_units)
                     h1, h2 = hidden_units
+
+                    # Train autoencoder
                     layers = [Layer("input", D, n_input_units=D, apply_sigmoid=True),
                               Layer("hidden_1", h1, n_input_units=None, apply_sigmoid=True),
-                              Layer("hidden_2", h2, n_input_units=None, apply_sigmoid=True),
-                              Layer("output", 1, n_input_units=None, apply_sigmoid=False)
+                              Layer("output", D, n_input_units=None, apply_sigmoid=False)
                               ]
-                    mlp = MLP(layers, D, eta, problem_class, n_runs=n_runs)
+                    autoencoder = MLP(layers, D, eta, problem_class, n_runs=n_runs)
+                    autoencoder.initialize_weights()
+                    #autoencoder.train(Y_tr, X_tr, Y_val, X_val)
+                    autoencoder.train(X_tr, X_tr, X_val, X_val)
+
+                    mlp_layers = [Layer("input", D, n_input_units=D, apply_sigmoid=True),
+                                  Layer("hidden_1", h1, n_input_units=None, apply_sigmoid=True),
+                                  Layer("hidden_2", h2, n_input_units=None, apply_sigmoid=True),
+                                  Layer("output", 1, n_input_units=None, apply_sigmoid=False)
+                                  ]
+                    mlp = MLP(mlp_layers, D, eta, problem_class, n_runs=n_runs, name="mlp")
                     mlp.initialize_weights()
-                    mlp.train(Y_tr, X_tr, Y_val, X_val)
+
+                    # Hook up autoencoder layers
+                    mlp.layers[0] = autoencoder.layers[0]
+                    mlp.layers[1] = autoencoder.layers[1]
+
+                    # Train
+                    mlp.train(X_tr, X_tr, Y_val, X_val)
+
+                    # Organize validation run results
                     index = ["eta", "h1", "h2"]
                     outputs = pd.DataFrame([[x] * n_runs for x in [eta, h1, h2]], index=index).transpose()
                     outputs["mse_val"] = mlp.val_scores
                     outputs["run"] = range(n_runs)
                     val_results.append(outputs)
+
+            # Organize datasest results
             val_results = pd.concat(val_results)
             val_results["fold"] = fold
             val_results = val_results.set_index(["fold", "run"]).reset_index()
@@ -159,16 +181,34 @@ def test_regression_mlp():
             test_set = test_sets[fold]
             Y_tr, X_tr = test_set["Y_tr"], test_set["X_tr"]
             Y_te, X_te = test_set["Y_te"], test_set["X_te"]
+
+            # Train autoencoder
             layers = [Layer("input", D, n_input_units=D, apply_sigmoid=True),
                       Layer("hidden_1", h1, n_input_units=None, apply_sigmoid=True),
-                      Layer("hidden_2", h2, n_input_units=None, apply_sigmoid=True),
-                      Layer("output", 1, n_input_units=None, apply_sigmoid=False)
+                      Layer("output", D, n_input_units=None, apply_sigmoid=False)
                       ]
+            autoencoder = MLP(layers, D, eta, problem_class, n_runs=n_runs)
+            autoencoder.initialize_weights()
+            autoencoder.train(X_tr, X_tr, X_te, X_te)
+            #autoencoder.train(Y_tr, X_tr, Y_te, X_te)
 
-            mlp = MLP(layers, D, eta, problem_class, n_runs=n_runs)
+            # Instantiate the MLP with the first two layers to be replaced by autoencoder
+            mlp_layers = [Layer("input", D, n_input_units=D, apply_sigmoid=True),
+                          Layer("hidden_1", h1, n_input_units=None, apply_sigmoid=True),
+                          Layer("hidden_2", h2, n_input_units=None, apply_sigmoid=True),
+                          Layer("output", 1, n_input_units=None, apply_sigmoid=False)
+                          ]
+            mlp = MLP(mlp_layers, D, eta, problem_class, n_runs=n_runs, name="mlp")
             mlp.initialize_weights()
+
+            # Hook up autoencoder layers
+            mlp.layers[0] = autoencoder.layers[0]
+            mlp.layers[1] = autoencoder.layers[1]
+
+            # Train
             mlp.train(Y_tr, X_tr, Y_te, X_te)
 
+            # Organize outputs
             index = ["eta", "h1", "h2"]
             outputs = pd.DataFrame([[x] * n_runs for x in [eta, h1, h2]], index=index).transpose()
             outputs["mse_te"] = mlp.val_scores
@@ -181,9 +221,9 @@ def test_regression_mlp():
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Save outputs
         print("\tSave")
-        te_results_dst = DST_DIR / f"mlp_{dataset}_te_results.csv"
-        val_results_dst = DST_DIR / f"mlp_{dataset}_val_results.csv"
-        val_summary_dst = DST_DIR / f"mlp_{dataset}_val_summary.csv"
+        te_results_dst = DST_DIR / f"autoencoder_{dataset}_te_results.csv"
+        val_results_dst = DST_DIR / f"autoencoder_{dataset}_val_results.csv"
+        val_summary_dst = DST_DIR / f"autoencoder_{dataset}_val_summary.csv"
 
         te_results.to_csv(te_results_dst, index=False)
         val_results.to_csv(val_results_dst, index=False)

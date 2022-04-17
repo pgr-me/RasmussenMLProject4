@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""Peter Rasmussen, Programming Assignment 3, test_regression_mlp.py
+"""Peter Rasmussen, Programming Assignment 4, test_classification_autoencoder.py
 
 """
 # Standard library imports
-import collections as c
-from copy import deepcopy
 import json
 from pathlib import Path
 import warnings
@@ -12,15 +10,14 @@ import warnings
 # Third party imports
 import numpy as np
 import pandas as pd
-from numba import jit, njit
-import numba as nb
 
 # Local imports
 from p4.preprocessing import Preprocessor
 from p4.mlp.mlp import MLP
 from p4.preprocessing.split import make_splits
 from p4.preprocessing.standardization import get_standardization_params, standardize, get_standardization_cols
-from p4.utils import mse, sigmoid, shuffle_indices
+from p4.utils import accuracy, dummy_categorical_label
+from p4.mlp.layer import Layer
 
 warnings.filterwarnings('ignore')
 
@@ -38,10 +35,10 @@ VAL_FRAC = 0.2
 # Load data catalog and tuning params
 with open(SRC_DIR / "data_catalog.json", "r") as file:
     data_catalog = json.load(file)
-data_catalog = {k: v for k, v in data_catalog.items() if k in ["forestfires", "machine", "abalone"]}
+data_catalog = {k: v for k, v in data_catalog.items() if k in ["breast-cancer-wisconsin", "car", "house-votes-84"]}
 
 
-def test_regression_mlp():
+def test_classification_autoencoder():
     # Iterate over each dataset
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     for dataset, dataset_meta in data_catalog.items():
@@ -68,23 +65,34 @@ def test_regression_mlp():
         problem_class = dataset_meta["problem_class"]
         data = preprocessor.data.copy()
         data = data[[label] + features]
-        if problem_class == "classification":
-            data[label] = data[label].astype(int)
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Assign folds
         data["fold"] = make_splits(data, problem_class, label, k_folds=K_FOLDS, val_frac=None)
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # Prep labels
+        if problem_class == "classification":
+            data[label] = data[label].astype(int)
+            classes = sorted(data[label].unique())
+            K = len(classes)
+            # Dummy labels and save for later
+            dummied_label_df, dummied_label_cols = dummy_categorical_label(data, label)
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Validate: Iterate over each fold-run
         print(f"\tValidate")
         val_results_li = []
         test_sets = {}
-        etas = {}
         te_results_li = []
-        from p4.mlp.layer import Layer
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # Validation: Iterate over each fold
         for fold in range(1, K_FOLDS + 1):
             print(f"\t\t{fold}")
+
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            # Split test, train, and validation
             test_mask = data["fold"] == fold
             test = data.copy()[test_mask].drop(axis=1, labels="fold")  # We'll save the test for use later
             train_val = data.copy()[~test_mask].drop(axis=1, labels="fold")
@@ -97,44 +105,70 @@ def test_regression_mlp():
             cols = get_standardization_cols(train, features)
             means, std_devs = get_standardization_params(train.copy()[cols])
 
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # Standardize data
-            train = train.drop(axis=1, labels=cols).join(standardize(train[cols], means, std_devs))
-            val = val.drop(axis=1, labels=cols).join(standardize(val[cols], means, std_devs))
-            test = test.drop(axis=1, labels=cols).join(standardize(test[cols], means, std_devs))  # Save test for later
+            X_tr_df = train.drop(axis=1, labels=[label] + cols).join(standardize(train[cols], means, std_devs))
+            X_val_df = val.drop(axis=1, labels=[label] + cols).join(standardize(val[cols], means, std_devs))
+            X_te_df = test.drop(axis=1, labels=[label] + cols).join(standardize(test[cols], means, std_devs))
 
-            YX_tr = train.copy().astype(np.float64).values
-            YX_te = test.copy().astype(np.float64).values  # Save test for later
-            YX_val = val.copy().astype(np.float64).values
-            Y_tr, X_tr = YX_tr[:, 0].reshape(len(YX_tr), 1), YX_tr[:, 1:]
-            test_sets[fold] = dict(Y_te=YX_te[:, 0].reshape(len(YX_te), 1), X_te=YX_te[:, 1:],
-                                   Y_tr=Y_tr, X_tr=X_tr)  # Save test for later
-            Y_val, X_val = YX_val[:, 0].reshape(len(YX_val), 1), YX_val[:, 1:]
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            # Convert train, test, and validation dataframes into arrays
+            X_tr = X_tr_df.copy().astype(np.float64).values
+            X_val = X_val_df.copy().astype(np.float64).values
+            X_te = X_te_df.copy().astype(np.float64).values
+
+            Y_tr = dummied_label_df.loc[train.index].astype(np.float64).values
+            Y_val = dummied_label_df.loc[val.index].astype(np.float64).values
+            Y_te = dummied_label_df.loc[test.index].astype(np.float64).values
+
+            # Save test data for later
+            test_sets[fold] = dict(Y_te=Y_te, X_te=X_te, Y_tr=Y_tr, X_tr=X_tr)  # Save test for later
 
             D = X_val.shape[1]
-            H = 4
-            K = 4
 
-            n_runs = 50
-            hidden_units_li = [[10, 10], [10, 8], [8, 6], [6, 6], [10, 6], [6, 4], [4, 2]]
-            #hidden_units_li = [[10, 10], [10, 8]]
+            n_runs = 150
+            hidden_units_li = [[8, 6], [8, 4], [6, 6], [6, 4], [4, 4], [4, 2]]
             val_results = []
-            for eta in [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.2, 0.4, 1]:
-            #for eta in [0.00001, 0.0001]:
+            for eta in [0.1, 0.2, 0.4, 1]:
+            #for eta in [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.2, 0.4, 1]:
                 for hidden_units in hidden_units_li:
                     h1, h2 = hidden_units
+
+                    # Train autoencoder
                     layers = [Layer("input", D, n_input_units=D, apply_sigmoid=True),
                               Layer("hidden_1", h1, n_input_units=None, apply_sigmoid=True),
-                              Layer("hidden_2", h2, n_input_units=None, apply_sigmoid=True),
-                              Layer("output", 1, n_input_units=None, apply_sigmoid=False)
+                              Layer("output", D, n_input_units=None, apply_sigmoid=False)
                               ]
-                    mlp = MLP(layers, D, eta, problem_class, n_runs=n_runs)
+                    autoencoder = MLP(layers, D, eta, "regression", n_runs=n_runs)
+                    autoencoder.initialize_weights()
+                    autoencoder.train(X_tr, X_tr, X_val, X_val)
+                    #autoencoder.train(Y_tr, X_tr, Y_val, X_val)
+
+                    # Train MLP
+                    mlp_layers = [Layer("input", D, n_input_units=D, apply_sigmoid=True),
+                                  Layer("hidden_1", h1, n_input_units=None, apply_sigmoid=True),
+                                  Layer("hidden_2", h2, n_input_units=None, apply_sigmoid=True),
+                                  Layer("output", K, n_input_units=None, apply_sigmoid=False)
+                                  ]
+                    mlp = MLP(mlp_layers, D, eta, problem_class, n_runs=n_runs, name="mlp")
                     mlp.initialize_weights()
+
+                    # Hook up autoencoder layers
+                    mlp.layers[0] = autoencoder.layers[0]
+                    mlp.layers[1] = autoencoder.layers[1]
+
+                    # Train
                     mlp.train(Y_tr, X_tr, Y_val, X_val)
+
+                    # Organize validation run results
                     index = ["eta", "h1", "h2"]
                     outputs = pd.DataFrame([[x] * n_runs for x in [eta, h1, h2]], index=index).transpose()
-                    outputs["mse_val"] = mlp.val_scores
+                    outputs["ce_val"] = mlp.val_scores
+                    outputs["acc_val"] = mlp.val_acc
                     outputs["run"] = range(n_runs)
                     val_results.append(outputs)
+
+            # Organize dataset results
             val_results = pd.concat(val_results)
             val_results["fold"] = fold
             val_results = val_results.set_index(["fold", "run"]).reset_index()
@@ -143,8 +177,8 @@ def test_regression_mlp():
         val_results = pd.concat(val_results_li)
         group = ["eta", "h1", "h2"]
         subset = ["fold", "eta", "h1", "h2"]
-        val_summary = val_results.copy().sort_values(by="mse_val").drop_duplicates(subset=subset)
-        val_summary = val_summary.groupby(group).mean().sort_values(by="mse_val")
+        val_summary = val_results.copy().sort_values(by="ce_val").drop_duplicates(subset=subset)
+        val_summary = val_summary.groupby(group).mean().sort_values(by="ce_val")
         best_val_params = val_summary.reset_index().iloc[0].to_dict()
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -159,19 +193,37 @@ def test_regression_mlp():
             test_set = test_sets[fold]
             Y_tr, X_tr = test_set["Y_tr"], test_set["X_tr"]
             Y_te, X_te = test_set["Y_te"], test_set["X_te"]
+
+            # Train autoencoder
             layers = [Layer("input", D, n_input_units=D, apply_sigmoid=True),
                       Layer("hidden_1", h1, n_input_units=None, apply_sigmoid=True),
-                      Layer("hidden_2", h2, n_input_units=None, apply_sigmoid=True),
-                      Layer("output", 1, n_input_units=None, apply_sigmoid=False)
+                      Layer("output", D, n_input_units=None, apply_sigmoid=False)
                       ]
+            autoencoder = MLP(layers, D, eta, problem_class, n_runs=n_runs)
+            autoencoder.initialize_weights()
+            autoencoder.train(X_tr, X_tr, X_te, X_te)
 
-            mlp = MLP(layers, D, eta, problem_class, n_runs=n_runs)
+            # Instantiate the MLP with the first two layers to be replaced by autoencoder
+            mlp_layers = [Layer("input", D, n_input_units=D, apply_sigmoid=True),
+                          Layer("hidden_1", h1, n_input_units=None, apply_sigmoid=True),
+                          Layer("hidden_2", h2, n_input_units=None, apply_sigmoid=True),
+                          Layer("output", 1, n_input_units=None, apply_sigmoid=False)
+                          ]
+            mlp = MLP(mlp_layers, D, eta, problem_class, n_runs=n_runs, name="mlp")
             mlp.initialize_weights()
+
+            # Hook up autoencoder layers
+            mlp.layers[0] = autoencoder.layers[0]
+            mlp.layers[1] = autoencoder.layers[1]
+
+            # Train
             mlp.train(Y_tr, X_tr, Y_te, X_te)
 
+            # Organize outputs
             index = ["eta", "h1", "h2"]
             outputs = pd.DataFrame([[x] * n_runs for x in [eta, h1, h2]], index=index).transpose()
-            outputs["mse_te"] = mlp.val_scores
+            outputs["ce_te"] = mlp.val_scores
+            outputs["acc_te"] = accuracy(Y_te, mlp.predict(X_te))
             outputs["run"] = range(n_runs)
             outputs["fold"] = fold
             te_results_li.append(outputs)
@@ -191,4 +243,4 @@ def test_regression_mlp():
 
 
 if __name__ == "__main__":
-    test_regression_mlp()
+    test_classification_autoencoder()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Peter Rasmussen, Programming Assignment 4, regression_perceptron.py
 
-This module provides the KNN class, the base class of KNNClassifier and KNNRegressor classes.
+This module provides various functions used in the regression perceptron routine.
 
 """
 # Third party libraries
