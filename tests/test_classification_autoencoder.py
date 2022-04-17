@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Peter Rasmussen, Programming Assignment 4, test_classification_autoencoder.py
+"""Peter Rasmussen, Programming Assignment 4, run_classification_autoencoder.py
 
 """
 # Standard library imports
@@ -25,7 +25,7 @@ warnings.filterwarnings('ignore')
 TEST_DIR = Path(".").absolute()
 REPO_DIR = TEST_DIR.parent
 P4_DIR = REPO_DIR / "p4"
-SRC_DIR = REPO_DIR / "data"
+SRC_DIR = REPO_DIR / "data" / "in"
 DST_DIR = REPO_DIR / "data" / "out"
 DST_DIR.mkdir(exist_ok=True, parents=True)
 THRESH = 0.01
@@ -207,7 +207,7 @@ def test_classification_autoencoder():
             mlp_layers = [Layer("input", D, n_input_units=D, apply_sigmoid=True),
                           Layer("hidden_1", h1, n_input_units=None, apply_sigmoid=True),
                           Layer("hidden_2", h2, n_input_units=None, apply_sigmoid=True),
-                          Layer("output", 1, n_input_units=None, apply_sigmoid=False)
+                          Layer("output", K, n_input_units=None, apply_sigmoid=False)
                           ]
             mlp = MLP(mlp_layers, D, eta, problem_class, n_runs=n_runs, name="mlp")
             mlp.initialize_weights()
@@ -233,9 +233,9 @@ def test_classification_autoencoder():
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Save outputs
         print("\tSave")
-        te_results_dst = DST_DIR / f"mlp_{dataset}_te_results.csv"
-        val_results_dst = DST_DIR / f"mlp_{dataset}_val_results.csv"
-        val_summary_dst = DST_DIR / f"mlp_{dataset}_val_summary.csv"
+        te_results_dst = DST_DIR / f"autoencoder_{dataset}_te_results.csv"
+        val_results_dst = DST_DIR / f"autoencoder_{dataset}_val_results.csv"
+        val_summary_dst = DST_DIR / f"autoencoder_{dataset}_val_summary.csv"
 
         te_results.to_csv(te_results_dst, index=False)
         val_results.to_csv(val_results_dst, index=False)

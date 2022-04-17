@@ -1,6 +1,6 @@
-dataset_name,fold,mse_te,best_eta
-machine,1,2529.2047364671785,0.01
-machine,2,1586.170682824506,0.01
-machine,3,3650.7952870974464,0.01
-machine,4,12723.281924799396,0.01
-machine,5,5445.678432552753,0.01
+problem_class,dataset_name,fold,mse_te,best_eta
+regression,machine,1,3106.5885205149743,0.01
+regression,machine,2,9292.890368344155,0.01
+regression,machine,3,4888.982697912176,0.01
+regression,machine,4,4571.028046021718,0.01
+regression,machine,5,5569.902713018958,0.01

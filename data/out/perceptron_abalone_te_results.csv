@@ -1,6 +1,6 @@
-dataset_name,fold,mse_te,best_eta
-abalone,1,4.634962630807549,0.001
-abalone,2,5.657178482805432,0.001
-abalone,3,4.62391112845427,0.001
-abalone,4,4.777789967581369,0.001
-abalone,5,5.083786469022451,0.001
+problem_class,dataset_name,fold,mse_te,best_eta
+regression,abalone,1,5.364418760542467,0.001
+regression,abalone,2,5.124760036835893,0.001
+regression,abalone,3,4.9735057420354645,0.001
+regression,abalone,4,4.745485941315612,0.001
+regression,abalone,5,4.716967154924332,0.001

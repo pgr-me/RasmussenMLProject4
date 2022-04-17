@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Peter Rasmussen, Programming Assignment 4, test_regression_perceptron.py
+"""Peter Rasmussen, Programming Assignment 4, run_regression_perceptron.py
 
 """
 # Standard library imports
@@ -28,7 +28,7 @@ warnings.filterwarnings('ignore')
 TEST_DIR = Path(".").absolute()
 REPO_DIR = TEST_DIR.parent
 P4_DIR = REPO_DIR / "p4"
-SRC_DIR = REPO_DIR / "data"
+SRC_DIR = REPO_DIR / "data" / "in"
 DST_DIR = REPO_DIR / "data" / "out"
 DST_DIR.mkdir(exist_ok=True, parents=True)
 THRESH = 0.01

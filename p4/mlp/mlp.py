@@ -6,12 +6,19 @@ This module provides the MLP class for multi-layer perceptron training, validati
 Sources: Lecture notes, Alpaydin, https://zerowithdot.com/mlp-backpropagation/, and
 https://brilliant.org/wiki/backpropagation/
 """
+# Third party imports
+import numpy as np
+
 # Local imports
 from p4.utils import accuracy, bias, cross_entropy, mse, shuffle_indices
 
 
 class MLP:
-    def __init__(self, layers: list, D: int, eta: float, problem_class: str, n_runs: int = 200, name: str=None):
+    """
+    Supports classification and regression.
+    """
+
+    def __init__(self, layers: list, D: int, eta: float, problem_class: str, n_runs: int = 200, name: str = None):
         self.layers = layers
         self.D = D  # Number of input dimensions
         self.eta = eta  # Learning rate
@@ -32,6 +39,12 @@ class MLP:
         return f"{len(self.layers)}-layer MLP"
 
     def backpropagate(self, X, Y, Yhat):
+        """
+        Backpropagate from output layer to input layer.
+        :param X: Inputs
+        :param Y: True values
+        :param Yhat: Predicted values
+        """
         backprop_error = Y - Yhat
         weight_changes = {}
         for index in reversed(range(1, self.n_layers)):
@@ -41,7 +54,6 @@ class MLP:
             weight_change = backprop_error.T.dot(bias(preceding_Z))
             weight_changes[index] = weight_change
             backprop_error = layer.backprop_error(backprop_error, preceding_Z)
-            #print('y')
         weight_changes[0] = backprop_error.T.dot(bias(X))
 
         for index, weight_change in weight_changes.items():
@@ -49,6 +61,9 @@ class MLP:
             layer.W = layer.W - self.eta * weight_change
 
     def initialize_weights(self):
+        """
+        Initialize weights for each layer.
+        """
         n_input_units = self.D
         self.layers[0].initialize_weights()
         for layer in self.layers[1:]:
@@ -56,33 +71,41 @@ class MLP:
             layer.initialize_weights()
             n_input_units = layer.n_units
 
-    def predict(self, X):
+    def predict(self, X) -> np.array:
+        """
+        Predict forward from input layer to output layer.
+        :param X: Input feature matrix
+        :return: Predicted output (i.e., Yhat)
+        """
         Z = self.layers[0].predict(X)
-        #print(self.layers[0], Z.shape)
         for layer in self.layers[1:]:
-            #if self.name == "mlp":
-            #    import ipdb; ipdb.set_trace()
             Z = layer.predict(Z)
-            #print(layer, Z.shape)
-            #print('')
         self.Yhat = Z
         return self.Yhat
 
-    def score(self, Y, Yhat):
+    def score(self, Y, Yhat) -> float:
+        """
+        If classification, compute cross entropy; otherwise compute MSE.
+        :param Y: True values
+        :param Yhat: Predicted values
+        :return: Score
+        """
         if self.problem_class == "classification":
             return cross_entropy(Y, Yhat)
         return mse(Y, Yhat)
 
     def train(self, Y_tr, X_tr, Y_val=None, X_val=None):
+        """
+        Train the MLP.
+        :param Y_tr: Training true values
+        :param X_tr: Training feature matrix
+        :param Y_val: Validation (or test) true values
+        :param X_val: Validation (or test) feature matrix
+        """
         run_validation = (Y_val is not None) and (X_val is not None)
         for run in range(self.n_runs):
-            #print(run)
             indices = shuffle_indices(len(X_tr))
             Yhat_tr = self.predict(X_tr[indices, :])
-            #try:
-            #    Yhat_tr = self.predict(X_tr[indices, :])
-            #except:
-            #    import ipdb; ipdb.set_trace()
             self.tr_scores.append(self.score(Y_tr[indices, :], Yhat_tr))
             if self.problem_class == "classification":
                 self.tr_acc.append(accuracy(Y_tr, Yhat_tr))

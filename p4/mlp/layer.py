@@ -43,7 +43,10 @@ class Layer:
         self.W = (np.random.rand(self.n_units, n_input_units_bias) - 0.5) * 2 / 100
 
     def predict(self, X):
-        o = bias(X).dot(self.W.T)
-        #o = self.W.dot(bias(X).T).T
-        self.Z = sigmoid(o) if self.apply_sigmoid else o
+        o = np.dot(bias(X), self.W.T)
+        if self.name != "output":
+            self.Z = sigmoid(o) if self.apply_sigmoid else o
+        else:
+            self.Z = np.exp(o) / np.sum(np.exp(o), axis=1).reshape(len(o), 1)
+
         return self.Z

@@ -224,7 +224,7 @@ class Preprocessor:
                 self.data[col] = self.data[col].replace(di)
         return self.data
 
-    def shuffle(self, random_state: int = 777) -> pd.DataFrame:
+    def shuffle(self, random_state: t.Union[int, None] = None) -> pd.DataFrame:
         """
         Shuffle the data by random seed.
         """

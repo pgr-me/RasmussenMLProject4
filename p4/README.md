@@ -1,12 +1,12 @@
 # Peter Rasmussen, Programming Assignment 4
 
-This Python 3 program trains the k nearest neighbor predictor across six datasets, using accuracy for the classification data and normalized interquantile root mean squared error for the regression data.
+This Python 3 program employs perceptrons, multi-layer perceptrons, and autoencoders to predict classification and regression targets.
 
 ## Getting Started
 
 The package is designed to be executed as a module from the command line. The user must specify the
- output directory as illustrated below. The PRasmussenAlgospa2/resources
-directory provides example output files - which echo the dynamically-generated input - for the user.
+ output directory as illustrated below. The RasmussenMLProject4/data
+directory provides example output files for the user.
 
 ```shell
 python -m path/to/p4  -i path/to/in_dir -o path/to/out_dir/ -k <folds> -v <val frac> -r <random state>
@@ -14,7 +14,7 @@ python -m path/to/p4  -i path/to/in_dir -o path/to/out_dir/ -k <folds> -v <val f
 
 As an example:
 ```shell
-python -m path/to/p4  -i path/to/in_dir -o path/to/out_dir/ -k 5 -v 0.1 -r 777
+python -m path/to/p4  -i path/to/in_dir -o path/to/out_dir/ -k 5 -v 0.2 -r 777
 ```
 
 A summary of the command line arguments is below.
@@ -32,7 +32,7 @@ Optional arguments:
     -r, --random_state         Provide pseudo-random seed
 
 ## Key parts of program
-* run.py: Executes data loading, preprocessing, training, socring, and output creation.
+* run.py: Executes data loading, preprocessing, training, scoring, and output creation.
 * preprocessor.py: Preprocesses data: loading, imputation, discretization, and fold assignment.
 
 * knn_classifier.py

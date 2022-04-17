@@ -20,11 +20,13 @@ module is executed as a standalone program."
 
 # standard library imports
 import argparse
+import logging
+import os
 from pathlib import Path
 
 # local imports
-from p4.run import run
-
+from p4.run import run_classification_autoencoder, run_classification_mlp, run_classification_perceptron
+from p4.run import run_regression_autoencoder, run_regression_mlp, run_regression_perceptron
 
 # Parse arguments
 parser = argparse.ArgumentParser()
@@ -45,10 +47,40 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-run(
-    args.src_dir,
-    args.dst_dir,
-    args.k_folds,
-    args.val_frac,
-    args.random_state
-)
+
+dir_path = Path(os.path.dirname(os.path.realpath(__file__)))
+log_path = dir_path / "p4.log"
+log_format = "%(asctime)s - %(levelname)s - %(message)s"
+logging.basicConfig(filename=log_path, level=logging.DEBUG, format=log_format)
+
+logging.debug(f"Begin: src_dir={args.src_dir.name}, dst_dir={args.dst_dir.name}.")
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+logging.debug("run_classification_autoencoder")
+run_classification_autoencoder(args.src_dir, args.dst_dir, args.k_folds, args.val_frac)
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+logging.debug("run_classification_mlp")
+run_classification_mlp(args.src_dir, args.dst_dir, args.k_folds, args.val_frac)
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+logging.debug("run_classification_perceptron")
+run_classification_perceptron(args.src_dir, args.dst_dir, args.k_folds, args.val_frac)
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+logging.debug("run_classification_autoencoder")
+run_regression_autoencoder(args.src_dir, args.dst_dir, args.k_folds, args.val_frac)
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+logging.debug("run_classification_mlp")
+run_regression_mlp(args.src_dir, args.dst_dir, args.k_folds, args.val_frac)
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+logging.debug("run_classification_perceptron")
+run_regression_perceptron(args.src_dir, args.dst_dir, args.k_folds, args.val_frac)
+
+logging.debug("Finish.\n")
+
+
+

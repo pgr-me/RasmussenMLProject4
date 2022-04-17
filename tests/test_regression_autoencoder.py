@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Peter Rasmussen, Programming Assignment 3, test_regression_autoencoder.py
+"""Peter Rasmussen, Programming Assignment 3, run_regression_autoencoder.py
 
 """
 # Standard library imports
@@ -28,7 +28,7 @@ warnings.filterwarnings('ignore')
 TEST_DIR = Path(".").absolute()
 REPO_DIR = TEST_DIR.parent
 P4_DIR = REPO_DIR / "p4"
-SRC_DIR = REPO_DIR / "data"
+SRC_DIR = REPO_DIR / "data" / "in"
 DST_DIR = REPO_DIR / "data" / "out"
 DST_DIR.mkdir(exist_ok=True, parents=True)
 THRESH = 0.01
@@ -147,7 +147,7 @@ def test_regression_mlp():
                     mlp.layers[1] = autoencoder.layers[1]
 
                     # Train
-                    mlp.train(X_tr, X_tr, Y_val, X_val)
+                    mlp.train(Y_tr, X_tr, Y_val, X_val)
 
                     # Organize validation run results
                     index = ["eta", "h1", "h2"]

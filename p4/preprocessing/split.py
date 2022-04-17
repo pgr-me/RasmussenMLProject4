@@ -29,7 +29,7 @@ def make_splits(data: pd.DataFrame, problem_class: str, label_col: str, k_folds:
 
     # If the problem class is classification, extract the labels into a list
     if problem_class == "classification":
-        labels = data[label_col].unique().tolist()
+        labels = sorted(data[label_col].unique().tolist())
 
     # Else if the problem class is regression, create a dummy label of length 1
     else:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Peter Rasmussen, Programming Assignment 3, test_classification_mlp.py
+"""Peter Rasmussen, Programming Assignment 3, run_classification_mlp.py
 
 """
 # Standard library imports
@@ -25,7 +25,7 @@ warnings.filterwarnings('ignore')
 TEST_DIR = Path(".").absolute()
 REPO_DIR = TEST_DIR.parent
 P4_DIR = REPO_DIR / "p4"
-SRC_DIR = REPO_DIR / "data"
+SRC_DIR = REPO_DIR / "data" / "in"
 DST_DIR = REPO_DIR / "data" / "out"
 DST_DIR.mkdir(exist_ok=True, parents=True)
 THRESH = 0.01
@@ -38,7 +38,7 @@ with open(SRC_DIR / "data_catalog.json", "r") as file:
 data_catalog = {k: v for k, v in data_catalog.items() if k in ["breast-cancer-wisconsin", "car", "house-votes-84"]}
 
 
-def test_regression_mlp():
+def test_classification_mlp():
     # Iterate over each dataset
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     for dataset, dataset_meta in data_catalog.items():
@@ -65,10 +65,13 @@ def test_regression_mlp():
         problem_class = dataset_meta["problem_class"]
         data = preprocessor.data.copy()
         data = data[[label] + features]
+        data = data.sample(frac=0.2)
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Assign folds
         data["fold"] = make_splits(data, problem_class, label, k_folds=K_FOLDS, val_frac=None)
+
+
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Prep labels
@@ -138,7 +141,7 @@ def test_regression_mlp():
                     layers = [Layer("input", D, n_input_units=D, apply_sigmoid=True),
                               Layer("hidden_1", h1, n_input_units=None, apply_sigmoid=True),
                               Layer("hidden_2", h2, n_input_units=None, apply_sigmoid=True),
-                              Layer("output", K, n_input_units=None, apply_sigmoid=True)
+                              Layer("output", K, n_input_units=None, apply_sigmoid=False)
                               ]
                     mlp = MLP(layers, D, eta, problem_class, n_runs=n_runs)
                     mlp.initialize_weights()
@@ -208,4 +211,4 @@ def test_regression_mlp():
 
 
 if __name__ == "__main__":
-    test_regression_mlp()
+    test_classification_mlp()
