@@ -49,7 +49,7 @@ def train_perceptron(Y: nb.float64[:], X: nb.float64[:], eta: float = 0.1, thres
     :return: Trained weights
     """
     w = (np.random.rand(1, X.shape[1]) - 0.5) * 2 / 100
-    mse = np.abs(0.00001)
+    mse_ = np.abs(0.00001)
     iteration = 0
     while True:
         # Randomly shuffle indices
@@ -62,8 +62,8 @@ def train_perceptron(Y: nb.float64[:], X: nb.float64[:], eta: float = 0.1, thres
         # Compute MSE and improvement from the latest iteration
         Yhat = predict(X, w)
         new_mse = mse(Y, Yhat)
-        delta = 1 - (mse - new_mse) / mse
-        mse = new_mse
+        delta = 1 - (mse_ - new_mse) / mse_
+        mse_ = new_mse
         iteration = iteration + 1
 
         # Return if delta improvement attained or max iterations reached

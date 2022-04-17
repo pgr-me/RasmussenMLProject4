@@ -147,7 +147,7 @@ def test_regression_mlp():
                     mlp.layers[1] = autoencoder.layers[1]
 
                     # Train
-                    mlp.train(X_tr, X_tr, Y_val, X_val)
+                    mlp.train(Y_tr, X_tr, Y_val, X_val)
 
                     # Organize validation run results
                     index = ["eta", "h1", "h2"]
